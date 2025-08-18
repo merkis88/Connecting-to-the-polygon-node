@@ -1,19 +1,36 @@
 import asyncio
+import json
+import websockets
+from pyexpat.errors import messages
 
-from web3 import AsyncWeb3
 
-async def nuber_block():
-    url_polygon = "https://polygon-rpc.com/"
+async def listen_new_blocks():
+    polygon_ws_url = "wss://polygon-mainnet.g.alchemy.com/v2/xKuI3iZT7t5-jCrIcbb3w"
 
-    w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(url_polygon))
+    async with websockets.connect(polygon_ws_url) as websocket:
+        print("Соединение установленно")
 
-    check_connect = await w3.is_connected()
+        await websocket.send(json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_subscribe",
+            "params": ["newHeads"]
+        }))
 
-    if (check_connect):
-        last_block = await w3.eth.block_number
-        print(f"Номер последнего блока: {last_block}")
-    else:
-        print("Блок не найден")
+        await websocket.recv()
+
+        print("Жду новые блоки")
+
+        while True:
+            message = await websocket.recv()
+            data = json.loads(message)
+            hex_block_number = data['params']['result']['number']
+            block_number = int(hex_block_number, 16)
+            print(f"Новый блок: {block_number}")
 
 if __name__ == "__main__":
-    asyncio.run(nuber_block())
+    asyncio.run(listen_new_blocks())
+
+
+
+
