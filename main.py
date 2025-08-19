@@ -1,7 +1,9 @@
 import asyncio
 import json
 import websockets
+from adodbapi.apibase import identity
 from pyexpat.errors import messages
+from websockets.cli import print_over_input
 
 
 async def listen_new_blocks():
@@ -18,15 +20,34 @@ async def listen_new_blocks():
         }))
 
         await websocket.recv()
+        print("Соединение установленно \n")
 
         print("Жду новые блоки")
 
         while True:
             message = await websocket.recv()
             data = json.loads(message)
-            hex_block_number = data['params']['result']['number']
-            block_number = int(hex_block_number, 16)
-            print(f"Новый блок: {block_number}")
+
+
+            if data.get('method') == "eth_subscription":
+                header_block = data['params']['result']
+                block_number_hex = header_block['number']
+                header_block_number = int(block_number_hex, 16)
+                print(f"Новый блок: {header_block_number}\n")
+
+                await websocket.send(json.dumps({
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "eth_getBlockByNumber",
+                    "params": [block_number_hex, True]
+                }))
+
+            elif data.get('id') == 2:
+                block_details = data.get('result')
+                if block_details:
+                    transaction = block_details.get('transaction', [])
+                    tr_count = len(transaction)
+                    print(f"Количество транзакций в блоке: {tr_count}")
 
 if __name__ == "__main__":
     asyncio.run(listen_new_blocks())
