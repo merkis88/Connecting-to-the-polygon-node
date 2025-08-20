@@ -3,6 +3,8 @@ import json
 import websockets
 
 from config.config import ALCHEMY_WEBSOCKET_URL
+from database.engine import get_db_session
+from  database.service import save_transactions_from_block
 
 
 async def listen_new_blocks():
@@ -44,12 +46,15 @@ async def listen_new_blocks():
             elif data.get('id') == 2:
                 block_details = data.get('result')
                 if block_details:
-                    transaction = block_details.get('transaction', [])
-                    tr_count = len(transaction)
+                    transactions = block_details.get('transaction', [])
+                    tr_count = len(transactions)
                     print(f"Количество транзакций в блоке: {tr_count}")
 
-if __name__ == "__main__":
-    asyncio.run(listen_new_blocks())
+                    async with get_db_session() as session:
+                        await save_transactions_from_block(session, block_details)
+                else:
+                    print('Не удалось получить данные блока')
+
 
 
 
