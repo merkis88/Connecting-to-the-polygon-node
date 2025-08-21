@@ -5,7 +5,7 @@ from database.models.transaction import Transaction
 
 WEI_TO_ETH = Decimal("1000000000000000000")
 
-async def save_transactions_from_block(session: AsyncSession, block_data: dict):
+async def save_transactions_from_block(session, block_data):
     raw_transactions = block_data.get('transactions', [])
     if not raw_transactions:
         return
@@ -23,6 +23,13 @@ async def save_transactions_from_block(session: AsyncSession, block_data: dict):
             value=value_in_eth
         )
         new_transactions.append(transaction_obj)
+        print(f"  - Хэш: {transaction_obj.tx_hash}")
+        print(f"    От: {transaction_obj.from_address}")
+        print(f"    Кому: {transaction_obj.to_address}")
+        print(f"    Сумма: {transaction_obj.value} ETH")
+        print("-" * 20)
+
+
     session.add_all(new_transactions)
 
     try:
