@@ -1,5 +1,5 @@
 from requests import session
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager
 from config.config import DATABASE_URL
 

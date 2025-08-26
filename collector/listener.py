@@ -3,15 +3,13 @@ import json
 import websockets
 
 from config.config import ALCHEMY_WEBSOCKET_URL
+from database.service import save_transactions_from_block, check_transactions_for_watched_wallets
 from database.engine import get_db_session
-from  database.service import save_transactions_from_block
 
 
 async def listen_new_blocks():
-    polygon_ws_url = ALCHEMY_WEBSOCKET_URL
-
-    async with websockets.connect(polygon_ws_url) as websocket:
-        print("Соединение установленно")
+    async with websockets.connect(ALCHEMY_WEBSOCKET_URL) as websocket:
+        print("✅ Соединение установлено!")
 
         await websocket.send(json.dumps({
             "jsonrpc": "2.0",
@@ -19,22 +17,20 @@ async def listen_new_blocks():
             "method": "eth_subscribe",
             "params": ["newHeads"]
         }))
-
         await websocket.recv()
-        print("Соединение установленно \n")
 
-        print("Жду новые блоки")
-
+        print("\n Ожидаем новые блоки")
         while True:
             message = await websocket.recv()
             data = json.loads(message)
 
+            if data.get("method") == "eth_subscription":
+                block_header = data.get('params', {}).get('result', {})
+                block_number_hex = block_header.get('number')
+                if not block_number_hex:
+                    continue
 
-            if data.get('method') == "eth_subscription":
-                header_block = data['params']['result']
-                block_number_hex = header_block['number']
-                header_block_number = int(block_number_hex, 16)
-                print(f"Новый блок: {header_block_number}\n")
+                print(f"\nНовый блок: {int(block_number_hex, 16)}")
 
                 await websocket.send(json.dumps({
                     "jsonrpc": "2.0",
@@ -43,19 +39,19 @@ async def listen_new_blocks():
                     "params": [block_number_hex, True]
                 }))
 
-            elif data.get('id') == 2:
+            elif data.get("id") == 2:
                 block_details = data.get('result')
                 if block_details:
-                    transactions = block_details.get('transaction', [])
-                    tr_count = len(transactions)
-                    print(f"Количество транзакций в блоке: {tr_count}")
+                    transactions = block_details.get('transactions', [])
+                    tx_count = len(transactions)
+                    print(f"  -> Получены детали. Транзакций в блоке: {tx_count}")
 
                     async with get_db_session() as session:
                         await save_transactions_from_block(session, block_details)
+                        await check_transactions_for_watched_wallets(session, transactions)
                 else:
-                    print('Не удалось получить данные блока')
+                    print("  -> Не удалось получить детали блока.")
 
 
-
-
-
+if __name__ == "__main__":
+    asyncio.run(listen_new_blocks())

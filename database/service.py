@@ -1,11 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal
+from database.models.wallet import WatchedWallet
 from database.models.transaction import Transaction
+from sqlalchemy import select
 
 WEI_TO_ETH = Decimal("1000000000000000000")
 
-async def save_transactions_from_block(session, block_data):
+
+async def save_transactions_from_block(session: AsyncSession, block_data: dict):
     raw_transactions = block_data.get('transactions', [])
     if not raw_transactions:
         return
@@ -23,18 +26,39 @@ async def save_transactions_from_block(session, block_data):
             value=value_in_eth
         )
         new_transactions.append(transaction_obj)
-        print(f"  - Хэш: {transaction_obj.tx_hash}")
-        print(f"    От: {transaction_obj.from_address}")
-        print(f"    Кому: {transaction_obj.to_address}")
-        print(f"    Сумма: {transaction_obj.value} ETH")
-        print("-" * 20)
-
 
     session.add_all(new_transactions)
 
     try:
         await session.commit()
-        print(f" Сохранено {len(new_transactions)} транзакций в БД")
+        print(f"  -> ✅ Сохранено {len(new_transactions)} транзакций в БД.")
     except IntegrityError:
         await session.rollback()
-        print("Обнаружены дубликаты, транзакции не сохранены")
+        print("  -> ❕ Обнаружены дубликаты, транзакции не сохранены.")
+
+
+async def check_transactions_for_watched_wallets(session: AsyncSession, transactions: list[dict]):
+    if not transactions:
+        return
+
+    involved_addresses = set()
+    for tx in transactions:
+        if tx.get('from'):
+            involved_addresses.add(tx.get('from').lower())
+        if tx.get('to'):
+            involved_addresses.add(tx.get('to').lower())
+
+    involved_addresses.discard(None)
+
+    if not involved_addresses:
+        return
+
+    query = select(WatchedWallet).where(WatchedWallet.address.in_(involved_addresses))
+    result = await session.execute(query)
+    found_wallets = result.scalars().all()
+
+    if found_wallets:
+        for wallet in found_wallets:
+            print("=" * 50)
+            print(f"🚨 ВНИМАНИЕ! Обнаружена активность кошелька: {wallet.label} ({wallet.address})")
+            print("=" * 50)
