@@ -3,11 +3,12 @@ import json
 import websockets
 
 from config.config import ALCHEMY_WEBSOCKET_URL
-from database.service import save_transactions_from_block, check_transactions_for_watched_wallets
+from service.utils_blockchain import save_transactions_from_block, check_transactions_for_watched_wallets
 from database.engine import get_db_session
+from aiogram import Bot
 
 
-async def listen_new_blocks():
+async def listen_new_blocks(bot: Bot):
     async with websockets.connect(ALCHEMY_WEBSOCKET_URL) as websocket:
         print("✅ Соединение установлено!")
 
@@ -48,10 +49,7 @@ async def listen_new_blocks():
 
                     async with get_db_session() as session:
                         await save_transactions_from_block(session, block_details)
-                        await check_transactions_for_watched_wallets(session, transactions)
+                        await check_transactions_for_watched_wallets(session, transactions, bot)
                 else:
                     print("  -> Не удалось получить детали блока.")
 
-
-if __name__ == "__main__":
-    asyncio.run(listen_new_blocks())

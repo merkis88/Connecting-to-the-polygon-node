@@ -1,33 +1,29 @@
-import asyncio
-import logging
-
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
-
-# 👇 ВАШ ИМПОРТ - ВСЁ ПРАВИЛЬНО
 from config.config import BOT_TOKEN
+from database.engine import get_db_session
+from service.utils_wallet import add_wallet
 
-print(f"Проверяем токен... Заканчивается на: ...{BOT_TOKEN[-6:]}")
-
-# Включаем логирование
-logging.basicConfig(level=logging.INFO)
-
-# ✅ СРАЗУ ИСПОЛЬЗУЕМ ИМПОРТИРОВАННЫЙ ТОКЕН
-bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Этот хэндлер будет срабатывать на команду /start
 @dp.message(Command("start"))
 async def send_welcome(message: types.Message):
-    """
-    Этот хэндлер будет вызываться, когда пользователь отправляет команду `/start`
-    """
     await message.reply("Привет!\nЯ твой бот для мониторинга кошельков Arbitrum.\nПока я только учусь отвечать.")
 
-# Основная функция для запуска бота
-async def main():
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+@dp.message(Command("watch"))
+async def watch_wallet(message: types.Message, command):
+    if not command.args:
+        await message.answer("Вы не указали адрес.\nПример: /watch 0xe592427a0aece92de3edee1f18e0157c05861564")
+        return
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    wallet_address = command.args
+    user_id = message.from_user.id
+
+    async with get_db_session() as session:
+        status = await add_wallet(session, user_id, wallet_address)
+    if status == "added":
+        await message.answer(f"✅ Добавлен кошелёк: {wallet_address}")
+    elif status == "exists":
+        await message.answer(f"Кошелёк уже отслеживается: {wallet_address}")
+    else:
+        await message.answer("❌ Произошла внутренняя ошибка. Попробуйте позже.")

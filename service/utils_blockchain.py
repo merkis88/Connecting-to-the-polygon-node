@@ -4,6 +4,7 @@ from decimal import Decimal
 from database.models.wallet import WatchedWallet
 from database.models.transaction import Transaction
 from sqlalchemy import select
+from aiogram import Bot
 
 WEI_TO_ETH = Decimal("1000000000000000000")
 
@@ -37,7 +38,7 @@ async def save_transactions_from_block(session: AsyncSession, block_data: dict):
         print("  -> ❕ Обнаружены дубликаты, транзакции не сохранены.")
 
 
-async def check_transactions_for_watched_wallets(session: AsyncSession, transactions: list[dict]):
+async def check_transactions_for_watched_wallets(session: AsyncSession, transactions: list[dict], bot: Bot):
     if not transactions:
         return
 
@@ -59,6 +60,6 @@ async def check_transactions_for_watched_wallets(session: AsyncSession, transact
 
     if found_wallets:
         for wallet in found_wallets:
-            print("=" * 50)
-            print(f"🚨 ВНИМАНИЕ! Обнаружена активность кошелька: {wallet.label} ({wallet.address})")
-            print("=" * 50)
+            user_id_to_notify = wallet.user_id
+            text = f"🚨 Обнаружена активность на отслеживаемом кошельке: {wallet.address}"
+            await bot.send_message(chat_id=user_id_to_notify, text=text)
