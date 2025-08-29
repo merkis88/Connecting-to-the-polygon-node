@@ -61,5 +61,5 @@ async def check_transactions_for_watched_wallets(session: AsyncSession, transact
     if found_wallets:
         for wallet in found_wallets:
             user_id_to_notify = wallet.user_id
-            text = f"🚨 Обнаружена активность на отслеживаемом кошельке: {wallet.address}"
+            text = f"🚨 Обнаружена активность на отслеживаемом кошельке: {wallet.label} \n{wallet.address}"
             await bot.send_message(chat_id=user_id_to_notify, text=text)
