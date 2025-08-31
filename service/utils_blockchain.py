@@ -48,8 +48,16 @@ async def check_transactions_for_watched_wallets(session: AsyncSession, transact
     if eth_price_usd is None:
         print("Не удалось получить цену ETH")
 
-    involved_addresses = {tx.get('from', '').lower() for tx in transactions} | {tx.get('to', '').lower() for tx in transactions}
-    involved_addresses.discard('') # Множество уникальных адресов из блока
+    involved_addresses = set()
+    for tx in transactions:
+        from_addr = tx.get('from')
+        to_addr = tx.get('to')
+
+        if from_addr:
+            involved_addresses.add(from_addr.lower())
+
+        if to_addr:
+            involved_addresses.add(to_addr.lower())
 
     if not involved_addresses:
         return
@@ -57,56 +65,58 @@ async def check_transactions_for_watched_wallets(session: AsyncSession, transact
     query = select(WatchedWallet).where(WatchedWallet.address.in_(involved_addresses))
     result = await session.execute(query) # Проверка на совпадения тех адресов которые лежат в бд и прилетели с множества
 
-    watched_map = {wallet.address: wallet for wallet in result.scalars().all()} # Превращаем список из БД в словарь, где ключ - это адрес, а значение - весь объект кошелька
+    watched_map = {}
+    for wallet in result.scalars().all():
+        if wallet.address not in watched_map:
+            watched_map[wallet.address] = []
+        watched_map[wallet.address].append(wallet)
+
     if not watched_map:
         return
 
     for tx in transactions:
-        watched_address = None
         from_address = tx.get('from', '').lower()
         to_address = tx.get('to', '').lower()
 
+        for address in [from_address, to_address]:
+            if address in watched_map:
 
-        if from_address in watched_map:
-            watched_address = from_address
-        elif to_address in watched_map:
-            watched_address = to_address
+                # Отправляем уведомления ВСЕМ подписчикам этого адреса
+                for wallet_data in watched_map[address]:
+                    user_to_notify = wallet_data.user_id
+                    wallet_label = wallet_data.label or wallet_data.address
 
-        if watched_address:
-            wallet_data = watched_map[watched_address]
-            user_to_notify = wallet_data.user_id
-            wallet_label = wallet_data.label or wallet_data.address
+                    direction = "📤 **Исходящая**" if address == from_address else "📥 **Входящая**"
+                    value_eth = Decimal(int(tx.get('value', '0x0'), 16)) / WEI_TO_ETH
+                    tx_hash = tx.get('hash')
+                    arbiscan_link = f"https://arbiscan.io/tx/{tx_hash}"
 
-            direction = "📤 **Исходящая**" if watched_address == from_address else "📥 **Входящая**"
-            value_eth = Decimal(int(tx.get('value', '0x0'), 16)) / WEI_TO_ETH
-            tx_hash = tx.get('hash')
-            arbiscan_link = f"https://arbiscan.io/tx/{tx_hash}"
+                    message_text = (
+                        f"🔔 **Активность на кошельке: {wallet_label}**\n\n"
+                        f"{direction} транзакция\n\n"
+                        f"💰 Сумма: **{value_eth:.6f} ETH**"
+                    )
 
-            message_text = (
-                f"🔔 **Активность на кошельке: {wallet_label}**\n\n"
-                f"{direction} транзакция\n\n"
-                f"💰 Сумма: **{value_eth:.6f} ETH**"
-            )
+                    if eth_price_usd:
+                        value_usd = float(value_eth) * eth_price_usd
+                        message_text += f" (~${value_usd:,.2f} USD)"
 
-            if eth_price_usd:
-                value_usd = float(value_eth) * eth_price_usd
-                message_text += f" (~${value_usd:,.2f} USD)"
+                    message_text += (
+                        f"\n\nОт: `{from_address}`\n"
+                        f"Кому: `{to_address}`\n\n"
+                        f"[🔗 Посмотреть на Arbiscan]({arbiscan_link})"
+                    )
 
-            message_text += (
-                f"\n\nОт: `{from_address}`\n"
-                f"Кому: `{to_address}`\n\n"
-                f"[🔗 Посмотреть на Arbiscan]({arbiscan_link})"
-            )
-
-            try:
-                await bot.send_message(
-                    chat_id=user_to_notify,
-                    text=message_text,
-                    parse_mode="Markdown",
-                    disable_web_page_preview=True
-                )
-            except Exception as e:
-                print(f"❌ Не удалось отправить уведомление пользователю {user_to_notify}: {e}")
+                    try:
+                        await bot.send_message(
+                            chat_id=user_to_notify,
+                            text=message_text,
+                            parse_mode="Markdown",
+                            disable_web_page_preview=True
+                        )
+                        print(f"✅ Уведомление отправлено пользователю {user_to_notify} для кошелька {wallet_label}")
+                    except Exception as e:
+                        print(f"❌ Не удалось отправить уведомление пользователю {user_to_notify}: {e}")
 
 
 
