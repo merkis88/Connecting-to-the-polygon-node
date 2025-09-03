@@ -4,12 +4,14 @@ from database.engine import get_db_session
 from service.utils_wallet import add_wallet
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from service.list_wallet import get_user_wallet, wallet_message
 
 router = Router()
 
 class AddWallet(StatesGroup):
     waiting_name = State()
     waiting_address = State()
+
 
 @router.message(Command("start"))
 async def send_welcome(message: types.Message):
@@ -48,6 +50,23 @@ async def process_wallet_address(message, state: FSMContext):
 
         await state.clear()
 
+@router.message(Command("list_wallet"))
+async def list_user_wallets(message: types.Message):
+    user_id = message.from_user.id
+
+    async with get_db_session() as session:
+        # 1. Получаем данные из БД
+        wallets = await get_user_wallet(session, user_id)
+
+        # 2. Форматируем сообщение
+        formatted_message = await wallet_message(wallets)
+
+    # 3. Отправляем готовое сообщение
+    await message.answer(
+        formatted_message,
+        parse_mode="Markdown",
+        disable_web_page_preview=True
+    )
 
 
 
