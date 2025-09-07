@@ -1,8 +1,8 @@
 import enum
+
 from datetime import datetime
 from sqlalchemy import String, func, Text, Enum
 from sqlalchemy.orm import Mapped, mapped_column
-
 from database.base import Base
 
 class WalletLabel(enum.Enum):
