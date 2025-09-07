@@ -2,7 +2,7 @@ import enum
 
 from datetime import datetime
 from sqlalchemy import String, func, Text, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.base import Base
 
 class WalletLabel(enum.Enum):
@@ -19,6 +19,8 @@ class LabeledWallet(Base):
     source: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    features = relationship("WalletFeature", back_populates="labeled_wallet", uselist=False,cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<LabeledWallet(address='{self.address}', label='{self.label.value}')>"
