@@ -27,7 +27,6 @@ wallet_to_seed = [
     {"address": "0x77134cbC06cB00b66F4c7e623D5fdBF6777635EC", "label": WalletLabel.LEGIT, "source": "Bitfinex","description": "Bitfinex: Hot Wallet - горячий кошелёк"},
     {"address": "0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D", "label": WalletLabel.LEGIT, "source": "Binance","description": "Binance 54 - огромный объём и транзакций"},
 
-
     # НОВЫЕ LEGIT - из Arbiscan Top Accounts
     {"address": "0x131F001aF400D5f212e1894846469FBa70f8bCc9", "label": WalletLabel.LEGIT,"source": "Arbiscan Top Accounts", "description": "Bithumb 8 - биржевой кошелек"},
 
@@ -41,15 +40,13 @@ wallet_to_seed = [
     {"address": "0xe592427a0aece92de3edee1f18e0157c05861564", "label": WalletLabel.LEGIT, "source": "Uniswap","description": "SwapRouter - DEX"},
     {"address": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45", "label": WalletLabel.LEGIT, "source": "Uniswap V3","description": "SwapRouter02 - активный DEX"},
 
-
     # SUSPICIOUS - MEV боты и высокочастотные трейдеры
     {"address": "0x77696bb39917c91a0c3908d577d5e322095425ca", "label": WalletLabel.SUSPICIOUS, "source": "MEV Scanner","description": "MEV searcher - арбитражный бот"},
     {"address": "0x48c04ed5691981c42154c6167398f95e8f38a7ff", "label": WalletLabel.SUSPICIOUS,"source": "Whale Analysis", "description": "Подозрительные паттерны кита"},
 
     # НОВЫЕ SUSPICIOUS
-    # Кошельки-создатели подозрительных токенов (данные GoPlus Security)
-    {"address": "0xC0a56aeE755Bd397235367008f7c2c4599768395", "label": WalletLabel.SUSPICIOUS, "source": "GoPlus Security", "description": "Создатель подозрительного токена 0x53e562..."},
-    {"address": "0x0ce72A0F7249412dF38D656695c9FA3644f40D78", "label": WalletLabel.SUSPICIOUS, "source": "GoPlus Security", "description": "Создатель подозрительного токена 0x1c8391..."},
+    # SUSPICIOUS подозрительные адреса у которых созданы смарт контракты (1 либо 2)
+    {"address": "0xC0a56aeE755Bd397235367008f7c2c4599768395", "label": WalletLabel.SUSPICIOUS, "source": "GoPlus Security", "description": "Создатель подозрительного токена 0x53e562..."}, # 1 смарт контракт
     # Типичный "аирдроп-хантер" или сибилл-адрес
     {"address": "0x000000a432c5608502591a3c5a320504bb053c0e", "label": WalletLabel.SUSPICIOUS, "source": "Nansen", "description": "Airdrop Hunter / Sybil Address - множество однотипных транзакций"},
 
@@ -67,11 +64,13 @@ wallet_to_seed = [
     # Взломщик протокола Ronin Bridge (один из крупнейших взломов в истории)
     {"address": "0x098B716B8Aaf21512996dC57EB0615e2383E2f96", "label": WalletLabel.SCAM, "source": "Ronin Hack", "description": "Ronin Bridge Exploiter - крупный взломщик"},
 
+    # SCAM Адреса у которых есть смарт контракты
+    {"address": "0x0ce72A0F7249412dF38D656695c9FA3644f40D78", "label": WalletLabel.SCAM, "source": "GoPlus Security", "description": "Великая вероятность что скамер, т.к создано 14 смарт контрактов "},
+
     # Дополнительные LEGIT для баланса датасета
-    {"address": "0xa69babef1ca67a37ffaf7a485dfff3382056e78c", "label": WalletLabel.LEGIT, "source": "Coinbase","description": "Coinbase институциональный кошелек"},
+    {"address": "0xa69babef1ca67a37ffaf7a485dfff3382056e78c", "label": WalletLabel.LEGIT, "source": "Coinbase","description": "Coinbase институциональный кошелек"}, # 14 смарт контрактов
     {"address": "0x489ee077994b6658eafa855c308275ead8097c4a", "label": WalletLabel.LEGIT, "source": "OpenSea","description": "OpenSea реестр - NFT маркетплейс"},
 ]
-
 
 async def uploading_data():
     async with get_db_session() as session:
