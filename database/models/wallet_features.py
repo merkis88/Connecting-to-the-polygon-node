@@ -1,6 +1,8 @@
 import datetime
+from xmlrpc.client import boolean
 
-from sqlalchemy import ForeignKey, Integer, Numeric, DateTime, func, BigInteger
+from rlp.sedes import Boolean
+from sqlalchemy import ForeignKey, Integer, Numeric, DateTime, func, BigInteger, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.base import Base
 
@@ -13,6 +15,7 @@ class WalletFeature(Base):
     balance_eth: Mapped[float] = mapped_column(Numeric(precision=30, scale=18))
     last_update_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     created_token_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default='0')
+    is_sanctioned: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default='false')
 
     labeled_wallet = relationship("LabeledWallet", back_populates="features")
 
