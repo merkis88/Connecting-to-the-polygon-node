@@ -1,9 +1,9 @@
 from requests import session
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from contextlib import asynccontextmanager
-from config.config import DATABASE_URL
+from config.config import POSTGRES_DSN
 
-async_engine = create_async_engine(DATABASE_URL)
+async_engine = create_async_engine(POSTGRES_DSN)
 
 async_session_factory = async_sessionmaker(
     bind=async_engine,

@@ -1,19 +1,26 @@
 import asyncio
 import datetime
 import aiohttp
-import sys
-import os
 
 from web3 import AsyncWeb3
 from sqlalchemy import select
 from database.engine import get_db_session
 from database.models import LabeledWallet, WalletFeature
-from config.config import ARBITRUM_RPC_URL, ARBISCAN_API_KEY, ETHERSCAN_ARBITRUM_API_ENDPOINT
+from config.config import (
+    ARBITRUM_RPC_URL,
+    ARBISCAN_API_KEY,
+    ETHERSCAN_V2_API_URL,
+    ARBITRUM_CHAIN_ID
+)
 
 w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(ARBITRUM_RPC_URL))
 
 
 async def feature_collector():
+    """
+    Основной цикл сбора признаков для криптовалютных кошельков.
+    Периодически проверяет БД на новые кошельки и собирает для них признаки.
+    """
     while True:
         try:
             print("Начинаю сбор данных")
@@ -73,7 +80,8 @@ async def feature_collector():
                         await db_session.commit()
                         print("Признаки добавлены в БД")
 
-            await asyncio.sleep(300)  # Ставим сервис на паузу на 5 минут перед началом нового цикла
+            # Пауза 5 минут перед следующей проверкой
+            await asyncio.sleep(300)
 
         except Exception as f:
             print(f"Произошла критическая ошибка {f}. Ждём 1 минуту")
@@ -81,8 +89,22 @@ async def feature_collector():
 
 
 async def get_first_tx_timestamp(session, address):
+    """
+    Получает timestamp первой транзакции кошелька через Etherscan V2 API.
+
+    Args:
+        session: aiohttp ClientSession для HTTP запросов
+        address: Адрес кошелька
+
+    Returns:
+        Unix timestamp первой транзакции или None
+
+    Note:
+        Etherscan V2 API rate limit: 5 запросов/сек (бесплатный план)
+        Документация: https://docs.etherscan.io/v2-migration
+    """
     params = {
-        "chainid": 42161,
+        "chainid": ARBITRUM_CHAIN_ID,
         "module": "account",
         "action": "txlist",
         "address": address,
@@ -95,7 +117,7 @@ async def get_first_tx_timestamp(session, address):
     }
 
     try:
-        async with session.get(ETHERSCAN_ARBITRUM_API_ENDPOINT, params=params) as response:
+        async with session.get(ETHERSCAN_V2_API_URL, params=params) as response:
             if response.status != 200:
                 print(f"HTTP ошибка: {response.status}")
                 return None
@@ -114,7 +136,7 @@ async def get_first_tx_timestamp(session, address):
                 return None
 
     except Exception as e:
-        print(f"Ошибка при запросе к API: {e}")
+        print(f"Ошибка при запросу к API: {e}")
         return None
 
 
