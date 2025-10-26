@@ -10,7 +10,9 @@ from config.config import (
     ARBITRUM_RPC_URL,
     ARBISCAN_API_KEY,
     ETHERSCAN_V2_API_URL,
-    ARBITRUM_CHAIN_ID
+    ARBITRUM_CHAIN_ID,
+    GOPLUS_API_KEY,
+    USR_FOR_REQUEST_GOPLUS
 )
 
 w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(ARBITRUM_RPC_URL))
@@ -63,11 +65,16 @@ async def feature_collector():
                                     wallet_age_days = (datetime.datetime.now() - first_tx_dt).days
                                     print(f"Возраст кошелька: {wallet_age_days} дней")
 
+                                # Проверка через GoPlus Security API
+                                is_sanctioned = await check_goplus_security(http_session, wallet.address)
+                                await asyncio.sleep(0.2)
+
                                 new_features = WalletFeature(
                                     wallet_id=wallet.id,
                                     transaction_count=tx_count,
                                     wallet_age_days=wallet_age_days,
-                                    balance_eth=balance_eth
+                                    balance_eth=balance_eth,
+                                    is_sanctioned=is_sanctioned
                                 )
 
                                 db_session.add(new_features)
@@ -87,7 +94,6 @@ async def feature_collector():
             print(f"Произошла критическая ошибка {f}. Ждём 1 минуту")
             await asyncio.sleep(60)
 
-
 async def get_first_tx_timestamp(session, address):
     """
     Получает timestamp первой транзакции кошелька через Etherscan V2 API.
@@ -101,7 +107,6 @@ async def get_first_tx_timestamp(session, address):
 
     Note:
         Etherscan V2 API rate limit: 5 запросов/сек (бесплатный план)
-        Документация: https://docs.etherscan.io/v2-migration
     """
     params = {
         "chainid": ARBITRUM_CHAIN_ID,
@@ -129,7 +134,7 @@ async def get_first_tx_timestamp(session, address):
 
             if data["status"] == "1" and data["result"]:
                 timestamp = int(data["result"][0]["timeStamp"])
-                print(f"    Найдена первая транзакция: timestamp={timestamp}")
+                print(f"Найдена первая транзакция: timestamp={timestamp}")
                 return timestamp
             else:
                 print(f"Нет транзакций: {data.get('message', 'unknown')}")
@@ -138,6 +143,63 @@ async def get_first_tx_timestamp(session, address):
     except Exception as e:
         print(f"Ошибка при запросу к API: {e}")
         return None
+
+
+async def check_goplus_security(session, address):
+    """
+    Проверяет кошелёк через GoPlus Security API на санкции.
+
+    Args:
+        session: aiohttp ClientSession
+        address: Адрес кошелька
+
+    Returns:
+        True если санкционирован, False если чист или при ошибке
+    """
+    if not GOPLUS_API_KEY:
+        print(f' GoPlus API key не настроен')
+        return False
+
+    headers = {
+        "Authorization": f'Bearer {GOPLUS_API_KEY}'
+    }
+
+    params = {
+        "address": address.lower(),
+        "chain_id": str(ARBITRUM_CHAIN_ID)
+    }
+
+    try:
+        async with session.get(USR_FOR_REQUEST_GOPLUS, headers=headers, params=params, timeout=10) as response:
+            if response.status != 200:
+                print(f'GoPlus HTTP {response.status}')
+                return False
+
+            data = await response.json()
+
+            if data.get("message") == "system error":
+                print('[ERROR] GoPlus: system error')
+                return False
+
+            result = data.get("result", {})
+            if not result:
+                print("[INFO] GoPlus: нет данных")
+                return False
+
+            address_data = result.get(address.lower(), {})
+            is_blacklisted = address_data.get("is_blacklisted", "0") == "1"
+            malicious = address_data.get("malicious_behavior", "0") != "0"
+
+            if is_blacklisted or malicious:
+                print(f"[ALERT] Кошелёк САНКЦИОНИРОВАН!")
+                return True
+
+            print("GoPlus: кошелёк чист")
+            return False
+
+    except Exception as e:
+        print(f"GoPlus: {e}")
+        return False
 
 
 if __name__ == "__main__":
