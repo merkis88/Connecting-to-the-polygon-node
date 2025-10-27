@@ -1,6 +1,9 @@
 import asyncio
 import datetime
+from http.client import responses
+
 import aiohttp
+from django.db.models.expressions import result
 
 from web3 import AsyncWeb3
 from sqlalchemy import select
@@ -144,6 +147,55 @@ async def get_first_tx_timestamp(session, address):
         print(f"Ошибка при запросу к API: {e}")
         return None
 
+async def get_created_contracts_count(session, address):
+    """
+        Проверяет кошелёк на кол-во созданных контактов.
+
+        Args:
+            session: aiohttp ClientSession
+            address: Адрес кошелька
+
+        Returns:
+            Количество созданных контрактов
+        """
+
+    params = {
+        "chainid": ARBITRUM_CHAIN_ID,
+        "module": "account",
+        "action": "txlist",
+        "address": address,
+        "startblock": 0,
+        "endblock": 99999999,
+        "page": 1,
+        "offset": 10000,
+        "sort": "asc",
+        "apikey": ARBISCAN_API_KEY
+    }
+
+    try:
+        async with session.get(ETHERSCAN_V2_API_URL, params=params) as response:
+            if response.status != 200:
+                print(f"HTTP ошибка при получении контрактов {response.status}")
+                return 0
+
+            data = await response.json()
+
+            if data.get("satus") != "1" or not data.get("result"):
+                print("Нет данных для подсчёта контрактов")
+                return 0
+
+            contract_creations = 0
+
+            for tx in data["result"]:
+                if tx.get("from", "").lower() == address.loser():
+                    if (not tx.get("to")) and tx.get("contractAddress"):
+                        contract_creations += 1
+                        print(f"Найден созданный контракт: {tx.get('contractAddress')}")
+            print(f"Создано всего контрактов: {contract_creations}")
+            return contract_creations
+    except Exception as e:
+        print(f"Ошибки при подсчёте созданных контрактов: {e}")
+        return 0
 
 async def check_goplus_security(session, address):
     """
